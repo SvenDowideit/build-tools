@@ -24,18 +24,30 @@ for repo in os-kernel os-base os-images os-services os; do
   #TODO: alert if we're not a the head of whatever branch we're on
 done
 
+# TODO: this can happen in paralell with os-kernel
+# TODO: and so should not rebuild whenever the kernel changes.
+cd os-base
+if [ "$REBUILD" == "1" ] || [ ! -e "dist/artifacts/os-base_amd64.tar.xz" ]; then
+  REBUILD=1
+  make .dapper
+  ./build.sh
+fi
+cd ..
 
 
 # this is the "build" suite
-# TODO: test if artifact already exists and is current, then skip.
-
-
+# test if artifact already exists and is current, then skip.
+cd linux
+LINUX_KERNEL_VERSION=$(make kernelversion)
+echo "Linux kernel version: ${LINUX_KERNEL_VERSION}"
+cd ..
 
 cd os-kernel
 #TODO: hardcoded linux source dir bad.
 #TODO: build for arm, arm64 etc
 #TODO: optionally skip this
-if [ "$REBUILD" == "1" ] || [ ! -e "../linux/linux-4.4.0-rc8-rancher+-x86.tar" ]; then
+if [ "$REBUILD" == "1" ] || [ ! -e "../linux/linux-${LINUX_KERNEL_VERSION}-rancher-x86.tar" ]; then
+  # TODO: there is an assumption in the os-kernel build tools that there is only one linux*.tar file :()
   REBUILD=1
   #TODO: optionally skip this to use the kernel already built
   #from os-kernel/scripts/extract
@@ -49,22 +61,12 @@ if [ "$REBUILD" == "1" ] || [ ! -e "dist/kernel/build.tar.gz" ]; then
 fi
 cd ..
 
-
-# TODO: this can happen in paralell with os-kernel
-cd os-base
-if [ "$REBUILD" == "1" ] || [ ! -e "dist/artifacts/os-base_amd64.tar.xz" ]; then
-  REBUILD=1
-  make .dapper
-  ./build.sh
-fi
-cd ..
-
 cd os
   if [ "$REBUILD" == "1" ] || [ ! -e "dist/artifacts/rancheros.iso" ]; then
     REBUILD=1
     mkdir -p assets/downloads/
     cd assets/downloads/
-    cp ../../../os-kernel/dist/kernel/linux-4.4.0-rc8-rancher+-x86.tar.gz kernel.tar.gz
+    cp ../../../os-kernel/dist/kernel/linux-${LINUX_KERNEL_VERSION}-rancher-x86.tar.gz kernel.tar.gz
     tar xvJf ../../../os-base/dist/artifacts/os-base_amd64.tar.xz
     # TODO selinux profile?
     ls -la
@@ -75,3 +77,4 @@ cd ..
 
 # now build the os images...?
 # and then stand up a registry that the iso should be cfg'd to get them from...
+# or possibly just build them into the "dev" image so they get preloaded.
